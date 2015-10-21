@@ -1,3 +1,11 @@
+Customization
+==================================
+
+Only the `3d.html` is working without firebase.
+
+You can adjust the `config` global variable to test different device parameters, the rendering will
+be updated automatically according to your changes.
+
 Viewer profile generator
 ==================================
 

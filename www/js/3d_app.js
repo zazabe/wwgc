@@ -17,7 +17,7 @@
 'use strict';
 
 /*global alert, document, screen, window, init,
-  THREE, WURFL, Firebase, screenfull, CARDBOARD, CONFIG, ga*/
+ THREE, WURFL, Firebase, screenfull, CARDBOARD, CONFIG, ga*/
 
 // meter units
 var CAMERA_HEIGHT = 0;
@@ -45,8 +45,8 @@ function isFullscreen() {
   var screen_height = Math.min(window.screen.width, window.screen.height);
 
   return window.document.hasFocus() &&
-         (screen_width === window.innerWidth) &&
-         (screen_height === window.innerHeight);
+    (screen_width === window.innerWidth) &&
+    (screen_height === window.innerHeight);
 }
 
 function resize() {
@@ -82,7 +82,8 @@ if (CONFIG.GOOGLE_ANALYTICS_ID) {
 window.onerror = function(message, file, line, col, error) {
   ga('send', 'exception', {
     'exDescription': error ? error.stack : message,
-    'exFatal': true});
+    'exFatal': true
+  });
 };
 
 function setOrientationControls(e) {
@@ -122,7 +123,7 @@ function setOrientationControls(e) {
   window.removeEventListener('deviceorientation', setOrientationControls, true);
 }
 
-function init_with_cardboard_device(firebase, cardboard_device) {
+function init_with_cardboard_device(cardboard_device) {
   renderer = new THREE.WebGLRenderer();
   element = renderer.domElement;
   container = document.getElementById('example');
@@ -161,42 +162,40 @@ function init_with_cardboard_device(firebase, cardboard_device) {
   var face_colors = [0xA020A0, 0x20A020, 0x50A0F0, 0x404040, 0xA0A0A0, 0xA0A020];
   var materialArray = [];
   face_colors.forEach(function(c) {
-      materialArray.push(new THREE.MeshBasicMaterial({
-        map: texture,
-        color: c,
-        side: THREE.BackSide
-      }));
-    });
+    materialArray.push(new THREE.MeshBasicMaterial({
+      map: texture,
+      color: c,
+      side: THREE.BackSide
+    }));
+  });
   var env_cube = new THREE.Mesh(
-      new THREE.BoxGeometry(box_width, box_width, box_width),
-      new THREE.MeshFaceMaterial(materialArray)
+    new THREE.BoxGeometry(box_width, box_width, box_width),
+    new THREE.MeshFaceMaterial(materialArray)
   );
   scene.add(env_cube);
 
   var screen_params = CARDBOARD.findScreenParams();
   var cardboard_view = new CARDBOARD.CardboardView(
-      screen_params, cardboard_device);
+    screen_params, cardboard_device);
 
   composer = new THREE.EffectComposer(renderer);
 
   composer.addPass(new THREE.CardboardStereoEffect(
-      cardboard_view, scene, camera));
+    cardboard_view, scene, camera));
 
   var barrel_distortion = new THREE.ShaderPass(THREE.CardboardBarrelDistortion);
   // TODO: Consider having red background only when FOV angle fields
   // are in focus.
   barrel_distortion.uniforms.backgroundColor.value =
-      new THREE.Vector4(1, 0, 0, 1);
+    new THREE.Vector4(1, 0, 0, 1);
   barrel_distortion.renderToScreen = true;
   composer.addPass(barrel_distortion);
 
-  firebase.on('value',
-      function (data) {
-        var val = data.val();
-        cardboard_view.device = CARDBOARD.uriToParams(val.params_uri);
-        CARDBOARD.updateBarrelDistortion(barrel_distortion, cardboard_view,
-            CAMERA_NEAR, CAMERA_FAR, val.show_lens_center);
-      });
+  Object.observe(cardboard_device, function(changes) {
+    console.log('changes', changes);
+    cardboard_view.device = cardboard_device;
+    CARDBOARD.updateBarrelDistortion(barrel_distortion, cardboard_view, CAMERA_NEAR, CAMERA_FAR, cardboard_device.show_lens_center);
+  });
 
   window.addEventListener('resize', resize, false);
   window.setTimeout(resize, 1);
@@ -208,45 +207,24 @@ function hasWebGl() {
   var canvas = document.createElement("canvas");
   try {
     return Boolean(canvas.getContext("webgl") ||
-                   canvas.getContext("experimental-webgl"));
+      canvas.getContext("experimental-webgl"));
   } catch (x) {
     return false;
   }
 }
 
-function init() {
-  if (!hasWebGl()) {
-    console.log('WebGL not available');
-    setMessageVisible('message_webgl', true);
-    return;
-  }
-  var firebase_token = window.location.hash.replace(/^#/, '');
-  if (firebase_token) {
-    var firebase_ref = new Firebase(CONFIG.FIREBASE_URL);
-    firebase_ref.authWithCustomToken(firebase_token, function(error, authData) {
-      if (error) {
-        console.log("Firebase login failed.", error);
-      } else {
-        var firebase_user = firebase_ref.child('users').child(authData.uid);
-        // TODO: display "waiting for data"
-        firebase_user.child('params_uri').once('value', function(data) {
-          var device = CARDBOARD.uriToParams(data.val());
-          init_with_cardboard_device(firebase_user, device);
-        });
-        // Maintain list of connections on this session
-        var firebase_connected = firebase_ref.root().child('.info/connected');
-        firebase_connected.on('value', function(is_connected) {
-          if (is_connected.val()) {
-            // TODO: have connections be list of device names
-            var entry = firebase_user.child('connections').push(true);
-            entry.onDisconnect().remove();
-          }
-        });
-      }
-    });
-  } else {
-    console.log("URL is missing session info:", window.location);
-  }
-}
+var config = {
+  "vendor": "foo",
+  "model": "test2",
+  "screen_to_lens_distance": 0.041999999433755875,
+  "inter_lens_distance": 0.05900000035762787,
+  "left_eye_field_of_view_angles": [50, 50, 50, 50],
+  "vertical_alignment": 0,
+  "tray_to_lens_distance": 0.03500000014901161,
+  "distortion_coefficients": [1.0299999713897705, 0.009999999776482582],
+  "has_magnet": true,
+  "primary_button": 1,
+  "show_lens_center": true
+};
 
-init();
+init_with_cardboard_device(config);
